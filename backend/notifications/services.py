@@ -58,6 +58,11 @@ def send_whatsapp_notification(to_phone, body):
     token = os.getenv("WHATSAPP_ACCESS_TOKEN")
     phone_id = os.getenv("PHONE_NUMBER_ID")
 
+    # Fallback to env variable agar to_phone blank ho
+    target_phone = to_phone or os.getenv("WHATSAPP_RECIPIENT_NUMBER", "")
+    if not target_phone:
+        return False, "Recipient phone number missing."
+
     if not token or not phone_id:
         return False, "WhatsApp credentials missing."
 
@@ -66,12 +71,19 @@ def send_whatsapp_notification(to_phone, body):
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json"
     }
-    clean_phone = to_phone.replace("+", "").replace(" ", "").strip()
+    clean_phone = target_phone.replace("+", "").replace(" ", "").strip()
+    
+    # Meta hello_world template payload (Instant delivery bypass)
     payload = {
         "messaging_product": "whatsapp",
         "to": clean_phone,
-        "type": "text",
-        "text": {"body": body}
+        "type": "template",
+        "template": {
+            "name": "hello_world",
+            "language": {
+                "code": "en_US"
+            }
+        }
     }
 
     try:
