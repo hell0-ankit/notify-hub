@@ -26,34 +26,6 @@ def send_email_notification(to_email, subject, body):
     except Exception as e:
         return False, str(e)
 
-def send_web_push_notification(player_ids, title, body):
-    app_id = os.getenv("ONESIGNAL_APP_ID")
-    rest_key = os.getenv("ONESIGNAL_REST_API_KEY")
-
-    if not app_id or not rest_key:
-        return False, "OneSignal credentials missing."
-
-    url = "https://onesignal.com/api/v1/notifications"
-    headers = {
-        "Authorization": f"Basic {rest_key}",
-        "Content-Type": "application/json"
-    }
-    if isinstance(player_ids, str):
-        player_ids = [player_ids]
-
-    payload = {
-        "app_id": app_id,
-        "include_subscription_ids": player_ids,
-        "headings": {"en": title or "Notification"},
-        "contents": {"en": body}
-    }
-
-    try:
-        response = requests.post(url, json=payload, headers=headers)
-        return response.status_code == 200, response.text
-    except Exception as e:
-        return False, str(e)
-
 def send_whatsapp_notification(to_phone, body):
     token = os.getenv("WHATSAPP_ACCESS_TOKEN")
     phone_id = os.getenv("PHONE_NUMBER_ID")

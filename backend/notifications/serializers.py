@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import NotificationSetting, NotificationLog, UserDevice
+from .models import NotificationSetting, NotificationLog
 
 class NotificationSettingSerializer(serializers.ModelSerializer):
     class Meta:
@@ -12,8 +12,3 @@ class NotificationLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = NotificationLog
         fields = ['id', 'username', 'trigger', 'channel', 'recipient', 'subject', 'body', 'status', 'response_payload', 'created_at']
-
-class UserDeviceSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = UserDevice
-        fields = ['id', 'player_id', 'created_at']

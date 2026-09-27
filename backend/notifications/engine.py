@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
-from .models import NotificationSetting, NotificationLog, UserDevice, ChannelType
-from .services import send_email_notification, send_web_push_notification, send_whatsapp_notification
+from .models import NotificationSetting, NotificationLog, ChannelType
+from .services import send_email_notification, send_whatsapp_notification
 
 def render_template(template_str, context):
     rendered = template_str or ""
@@ -40,17 +40,8 @@ def dispatch_trigger(user, trigger_event, extra_context=None):
             else:
                 response_text = "No email address found on user."
 
-        elif setting.channel == ChannelType.WEB_PUSH:
-            devices = UserDevice.objects.filter(user=user).values_list('player_id', flat=True)
-            if devices:
-                recipient = f"{len(devices)} device(s)"
-                success, response_text = send_web_push_notification(list(devices), rendered_subject, rendered_body)
-                status = 'success' if success else 'failed'
-            else:
-                response_text = "No web push devices registered."
-
         elif setting.channel == ChannelType.WHATSAPP:
-            # Check user/profile attributes first, then fallback to environment variable
+            # 1. User attribute -> 2. Profile attribute -> 3. .env fallback
             recipient = (
                 getattr(user, 'phone_number', None)
                 or getattr(getattr(user, 'profile', None), 'phone_number', None)
@@ -60,7 +51,7 @@ def dispatch_trigger(user, trigger_event, extra_context=None):
                 success, response_text = send_whatsapp_notification(recipient, rendered_body)
                 status = 'success' if success else 'failed'
             else:
-                response_text = "No phone number found on user or in environment variables."
+                response_text = "No recipient phone number found."
 
         # Record to audit log
         NotificationLog.objects.create(

@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { getSettings, toggleChannel, getLogs, triggerEvent, registerDevice } from './api';
-import { Mail, MessageSquare, Bell, Play, RefreshCw, CheckCircle2, XCircle } from 'lucide-react';
+import { getSettings, toggleChannel, getLogs, triggerEvent } from './api';
+import { Mail, MessageSquare, Play, RefreshCw, CheckCircle2, XCircle, Edit3, Save, X } from 'lucide-react';
+import axios from './api';
 
 const triggers = ['login', 'logout', 'inactivity'];
 const channels = [
   { id: 'email', label: 'Email', icon: Mail },
   { id: 'whatsapp', label: 'WhatsApp', icon: MessageSquare },
-  { id: 'web_push', label: 'Web Push', icon: Bell },
 ];
 
 export default function App() {
@@ -15,32 +15,12 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [dispatchStatus, setDispatchStatus] = useState('');
 
-  // 1. OneSignal Web Push initialization and auto-registration
-  useEffect(() => {
-    window.OneSignalDeferred = window.OneSignalDeferred || [];
-    window.OneSignalDeferred.push(async function (OneSignal) {
-      await OneSignal.init({
-        appId: import.meta.env.VITE_ONESIGNAL_APP_ID || "8f01089e-10ec-402d-9b71-724e4eb1d6ea",
-        allowLocalhostAsSecureOrigin: true,
-        notifyButton: {
-          enable: true,
-        },
-      });
+  // Template Editing State
+  const [editingSetting, setEditingSetting] = useState(null);
+  const [editSubject, setEditSubject] = useState('');
+  const [editBody, setEditBody] = useState('');
+  const [savingTemplate, setSavingTemplate] = useState(false);
 
-      OneSignal.User.PushSubscription.addEventListener("change", async (event) => {
-        if (event.current?.id) {
-          try {
-            await registerDevice({ player_id: event.current.id });
-            console.log("Device subscribed and registered in backend:", event.current.id);
-          } catch (err) {
-            console.error("Device registration error:", err);
-          }
-        }
-      });
-    });
-  }, []);
-
-  // 2. Fetch data from backend
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -58,7 +38,6 @@ export default function App() {
     fetchData();
   }, []);
 
-  // 3. Matrix toggle
   const handleToggle = async (trigger, channel, currentState) => {
     try {
       await toggleChannel({
@@ -72,7 +51,6 @@ export default function App() {
     }
   };
 
-  // 4. Test trigger dispatch
   const handleTestTrigger = async (trigger) => {
     setDispatchStatus(`Firing ${trigger}...`);
     try {
@@ -84,9 +62,31 @@ export default function App() {
     }
   };
 
-  const isChannelActive = (trigger, channel) => {
-    const item = settings.find((s) => s.trigger === trigger && s.channel === channel);
-    return item ? item.is_active : false;
+  const openTemplateModal = (setting) => {
+    setEditingSetting(setting);
+    setEditSubject(setting.template_subject || '');
+    setEditBody(setting.template_body || '');
+  };
+
+  const saveTemplate = async () => {
+    if (!editingSetting) return;
+    setSavingTemplate(true);
+    try {
+      await axios.patch(`/settings/${editingSetting.id}/`, {
+        template_subject: editSubject,
+        template_body: editBody,
+      });
+      setEditingSetting(null);
+      fetchData();
+    } catch (err) {
+      console.error('Failed to save template:', err);
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
+  const getSettingItem = (trigger, channel) => {
+    return settings.find((s) => s.trigger === trigger && s.channel === channel);
   };
 
   return (
@@ -97,7 +97,7 @@ export default function App() {
         <header className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-800 pb-5 gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white">NotifyHub Control Center</h1>
-            <p className="text-slate-400 text-sm mt-1">Manage notification channels, fire simulated triggers, and inspect delivery logs.</p>
+            <p className="text-slate-400 text-sm mt-1">Manage notification channels, templates, and delivery audit logs.</p>
           </div>
           <button
             onClick={fetchData}
@@ -128,9 +128,9 @@ export default function App() {
           </div>
         </section>
 
-        {/* 2. Channel Matrix */}
+        {/* 2. Channel Matrix & Templates */}
         <section className="bg-slate-900 border border-slate-800 p-6 rounded-xl shadow-sm">
-          <h2 className="text-lg font-semibold mb-4 text-slate-200">2. Trigger Channel Matrix</h2>
+          <h2 className="text-lg font-semibold mb-4 text-slate-200">2. Trigger Channel Matrix & Templates</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -151,19 +151,32 @@ export default function App() {
                   <tr key={t} className="hover:bg-slate-800/40">
                     <td className="py-4 px-4 font-medium capitalize text-slate-300">{t}</td>
                     {channels.map((c) => {
-                      const active = isChannelActive(t, c.id);
+                      const item = getSettingItem(t, c.id);
+                      const active = item ? item.is_active : false;
                       return (
                         <td key={c.id} className="py-4 px-4">
-                          <button
-                            onClick={() => handleToggle(t, c.id, active)}
-                            className={`px-3 py-1.5 rounded-md text-xs font-semibold border transition cursor-pointer ${
-                              active
-                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
-                                : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'
-                            }`}
-                          >
-                            {active ? 'Active' : 'Disabled'}
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleToggle(t, c.id, active)}
+                              className={`px-3 py-1.5 rounded-md text-xs font-semibold border transition cursor-pointer ${
+                                active
+                                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
+                                  : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'
+                              }`}
+                            >
+                              {active ? 'Active' : 'Disabled'}
+                            </button>
+
+                            {item && (
+                              <button
+                                onClick={() => openTemplateModal(item)}
+                                title="Edit Template"
+                                className="p-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition cursor-pointer"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
                         </td>
                       );
                     })}
@@ -224,6 +237,65 @@ export default function App() {
         </section>
 
       </div>
+
+      {/* Edit Template Modal */}
+      {editingSetting && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 max-w-lg w-full space-y-4 shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="font-semibold text-slate-200">
+                Edit Template: <span className="capitalize text-indigo-400">{editingSetting.trigger}</span> ({editingSetting.channel.toUpperCase()})
+              </h3>
+              <button
+                onClick={() => setEditingSetting(null)}
+                className="text-slate-400 hover:text-slate-200 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {editingSetting.channel === 'email' && (
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1">Subject</label>
+                <input
+                  type="text"
+                  value={editSubject}
+                  onChange={(e) => setEditSubject(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1">
+                Body Template <span className="text-slate-500">(Supports: &#123;&#123;name&#125;&#125;, &#123;&#123;time&#125;&#125;, &#123;&#123;site&#125;&#125;)</span>
+              </label>
+              <textarea
+                rows={4}
+                value={editBody}
+                onChange={(e) => setEditBody(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 font-mono"
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => setEditingSetting(null)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm border border-slate-700 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveTemplate}
+                disabled={savingTemplate}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm transition cursor-pointer disabled:opacity-50"
+              >
+                <Save className="w-4 h-4" /> {savingTemplate ? 'Saving...' : 'Save Template'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

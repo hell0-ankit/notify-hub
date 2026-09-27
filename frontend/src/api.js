@@ -15,6 +15,5 @@ export const getSettings = () => client.get('/settings/');
 export const toggleChannel = (data) => client.post('/settings/toggle/', data);
 export const getLogs = () => client.get('/logs/');
 export const triggerEvent = (data) => client.post('/dispatch/', data);
-export const registerDevice = (data) => client.post('/devices/', data);
 
 export default client;

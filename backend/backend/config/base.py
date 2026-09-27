@@ -79,35 +79,30 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-# DRF & drf-spectacular settings
+# DRF settings
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
     ],
 }
 
-
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'Asia/Kolkata'
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = 'static/'
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # CORS Settings
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
-# Notification APIs Config
+# Notification APIs Config (Email & WhatsApp only)
 RESEND_API_KEY = os.getenv('RESEND_API_KEY')
 FROM_EMAIL = os.getenv('FROM_EMAIL', 'onboarding@resend.dev')
-
-ONESIGNAL_APP_ID = os.getenv('ONESIGNAL_APP_ID')
-ONESIGNAL_REST_API_KEY = os.getenv('ONESIGNAL_REST_API_KEY')
 
 WHATSAPP_ACCESS_TOKEN = os.getenv('WHATSAPP_ACCESS_TOKEN')
 PHONE_NUMBER_ID = os.getenv('PHONE_NUMBER_ID')

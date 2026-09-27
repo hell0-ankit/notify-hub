@@ -1,9 +1,9 @@
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
-from notifications.models import NotificationSetting, UserDevice, NotificationLog
+from notifications.models import NotificationSetting, NotificationLog
 
 class Command(BaseCommand):
-    help = 'Flushes old data and seeds fresh superuser, single test user, device, and triggers'
+    help = 'Flushes old data and seeds fresh superuser, single test user, and triggers with default templates (Email & WhatsApp only)'
 
     def handle(self, *args, **kwargs):
         self.stdout.write(self.style.WARNING("=" * 60))
@@ -13,12 +13,10 @@ class Command(BaseCommand):
         # --- STEP 1: PURANA DATA DELETE KAREIN ---
         deleted_logs, _ = NotificationLog.objects.all().delete()
         deleted_settings, _ = NotificationSetting.objects.all().delete()
-        deleted_devices, _ = UserDevice.objects.all().delete()
         deleted_users, _ = User.objects.all().delete()
 
         self.stdout.write(self.style.NOTICE(f"[Deleted] {deleted_logs} Audit Logs"))
         self.stdout.write(self.style.NOTICE(f"[Deleted] {deleted_settings} Notification Settings"))
-        self.stdout.write(self.style.NOTICE(f"[Deleted] {deleted_devices} User Devices"))
         self.stdout.write(self.style.NOTICE(f"[Deleted] {deleted_users} Users\n"))
 
         # --- STEP 2: FRESH SUPERUSER (ADMIN) ---
@@ -37,25 +35,61 @@ class Command(BaseCommand):
             last_name='Singh'
         )
 
-        # --- STEP 4: FRESH DEVICE REGISTRATION ---
-        device = UserDevice.objects.create(
-            user=test_user,
-            player_id='8f01089e-10ec-402d-9b71-724e4eb1d6ea'
-        )
+        # --- STEP 4: TRIGGER & TEMPLATE CONFIGS ---
+        templates_config = [
+            # Login
+            {
+                'trigger': 'login',
+                'channel': 'email',
+                'subject': 'Security Alert: New Login to Your Account',
+                'body': 'Hi {{name}}, a new login was detected on your account at {{time}} from {{site}}.'
+            },
+            {
+                'trigger': 'login',
+                'channel': 'whatsapp',
+                'subject': '',
+                'body': 'Hi {{name}}, new login detected on {{site}} at {{time}}.'
+            },
 
-        # --- STEP 5: FRESH TRIGGER MATRIX ---
-        triggers = ['login', 'logout', 'inactivity']
-        channels = ['email', 'web_push', 'whatsapp']
+            # Logout
+            {
+                'trigger': 'logout',
+                'channel': 'email',
+                'subject': 'Session Terminated: Logout Recorded',
+                'body': 'Hi {{name}}, you have successfully logged out from {{site}} at {{time}}.'
+            },
+            {
+                'trigger': 'logout',
+                'channel': 'whatsapp',
+                'subject': '',
+                'body': 'Hi {{name}}, you have logged out from {{site}} at {{time}}.'
+            },
 
-        for trigger in triggers:
-            for channel in channels:
-                NotificationSetting.objects.create(
-                    trigger=trigger,
-                    channel=channel,
-                    is_active=True
-                )
+            # Inactivity
+            {
+                'trigger': 'inactivity',
+                'channel': 'email',
+                'subject': 'We Miss You! Inactivity Reminder',
+                'body': 'Hi {{name}}, we noticed you have been inactive on {{site}} for a while. Log in to see what is new!'
+            },
+            {
+                'trigger': 'inactivity',
+                'channel': 'whatsapp',
+                'subject': '',
+                'body': 'Hi {{name}}, we miss you on {{site}}! Log back in to continue where you left off.'
+            },
+        ]
 
-        # --- STEP 6: VERIFIED OUTPUT PRINT ---
+        for config in templates_config:
+            NotificationSetting.objects.create(
+                trigger=config['trigger'],
+                channel=config['channel'],
+                template_subject=config['subject'],
+                template_body=config['body'],
+                is_active=True
+            )
+
+        # --- STEP 5: VERIFIED OUTPUT PRINT ---
         self.stdout.write(self.style.SUCCESS("1. [Superuser Created]"))
         self.stdout.write(f"   • Username : {admin_user.username}")
         self.stdout.write(f"   • Email    : {admin_user.email}")
@@ -66,12 +100,8 @@ class Command(BaseCommand):
         self.stdout.write(f"   • Email    : {test_user.email}")
         self.stdout.write("   • Password : testpass123")
 
-        self.stdout.write(self.style.SUCCESS("\n3. [Device Linked]"))
-        self.stdout.write(f"   • User      : {device.user.username}")
-        self.stdout.write(f"   • Player ID : {device.player_id}")
-
-        self.stdout.write(self.style.SUCCESS("\n4. [Trigger-Channel Matrix Ready]"))
-        self.stdout.write(f"   • Total Active Settings : {NotificationSetting.objects.count()} (3 Triggers x 3 Channels)")
+        self.stdout.write(self.style.SUCCESS("\n3. [Trigger-Channel Matrix with Templates Ready]"))
+        self.stdout.write(f"   • Total Active Settings : {NotificationSetting.objects.count()} (3 Triggers x 2 Channels)")
 
         self.stdout.write(self.style.WARNING("\n" + "=" * 60))
         self.stdout.write(self.style.SUCCESS("   CLEAN SEEDING COMPLETED - READY FOR DISPATCH"))
